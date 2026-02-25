@@ -1,73 +1,90 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>BFL Social Media Summary Tool</title>
+    <meta charset="UTF-8">
+    <title>BFL Social Media Report Generator</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 30px; background: #f0f2f5; }
-        .container { max-width: 700px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #reportOutput { margin-top: 20px; padding: 20px; background: #fafafa; border: 1px solid #ddd; border-radius: 8px; white-space: pre-wrap; display: none; color: #333; }
-        .btn { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        .btn-gmail { background: #D44638; margin-top: 10px; display: none; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 30px; background-color: #f8f9fa; text-align: center; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        input { margin: 20px 0; }
+        #output { text-align: left; background: #f1f1f1; padding: 15px; border-radius: 8px; margin-top: 20px; display: none; white-space: pre-wrap; font-size: 14px; }
+        .btn { background: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin-top: 10px; }
+        .btn-gmail { background: #d44638; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📊 BFL Social Media Summarizer</h2>
-    <p>Upload your report sheet to calculate ER and generate a summary.</p>
+    <h2>📊 BFL Report Summarizer</h2>
+    <p>Upload Excel to see the summary and ER calculation.</p>
     
-    <input type="file" id="upload" accept=".xlsx" />
-    <div id="reportOutput"></div>
-    <button id="gmailBtn" class="btn btn-gmail" onclick="sendEmail()">📧 Send Summary to Leadership</button>
+    <input type="file" id="fileUpload" accept=".xlsx, .xls" />
+    
+    <div id="output"></div>
+    
+    <button id="gmailBtn" class="btn btn-gmail" onclick="sendEmail()">Send via Gmail</button>
 </div>
 
 <script>
-    let emailBody = "";
+    let finalMessage = "";
 
-    document.getElementById('upload').addEventListener('change', function(e) {
+    document.getElementById('fileUpload').addEventListener('change', function(e) {
+        const file = e.target.files[0];
         const reader = new FileReader();
+
         reader.onload = function(event) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
-            const sheet = workbook.Sheets[workbook.SheetNames[0]];
-            const rows = XLSX.utils.sheet_to_json(sheet);
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
-            let summaryText = "Hi Leadership Team,\n\nHere is the social media performance breakdown:\n\n";
+            if (jsonData.length === 0) {
+                alert("Sheet is empty!");
+                return;
+            }
 
-            rows.forEach(row => {
+            let report = "Hi Team,\n\nWeekly Social Media Update:\n\n";
+
+            jsonData.forEach((row, index) => {
+                // Get values regardless of capital/small letters in Excel headers
+                const platform = row.Platform || row.platform || "Platform " + (index + 1);
+                const reach = parseFloat(row.Reach || row.reach || 0);
+                const likes = parseFloat(row.Likes || row.likes || 0);
+                const comments = parseFloat(row.Comments || row.comments || 0);
+                const shares = parseFloat(row.Shares || row.shares || 0);
+                const saves = parseFloat(row.Saves || row.saves || 0);
+                const clicks = parseFloat(row.Clicks || row.clicks || 0);
+                
                 let er = 0;
-                const platform = (row.Platform || "").toLowerCase();
-
-                if (platform.includes("linkedin")) {
-                    // Use automated ER from LinkedIn column
-                    er = row.ER || 0;
+                if (platform.toLowerCase().includes("linkedin")) {
+                    er = row.ER || row.er || 0; // LinkedIn auto ER
                 } else {
-                    // Apply your manual formula for IG/FB
-                    const interactions = (row.Likes || 0) + (row.Comments || 0) + (row.Shares || 0) + (row.Saves || 0) + (row.Clicks || 0);
-                    const reach = row.Reach || 1; // Avoid division by zero
-                    er = (interactions / reach) * 100;
+                    // Your custom formula: (Likes+Comments+Shares+Saves+Clicks)/Reach
+                    const totalInteractions = likes + comments + shares + saves + clicks;
+                    er = reach > 0 ? (totalInteractions / reach) * 100 : 0;
                 }
 
-                summaryText += `*${row.Platform}*\n`;
-                summaryText += `• Reach: ${row.Reach.toLocaleString()}\n`;
-                summaryText += `• Engagement Rate: ${er.toFixed(2)}%\n`;
-                summaryText += `• Key Highlight: ${row.Highlight || "Steady growth"}\n\n`;
+                report += `📍 *${platform}*\n`;
+                report += `• Reach: ${reach.toLocaleString()}\n`;
+                report += `• Engagement Rate: ${er.toFixed(2)}%\n\n`;
             });
 
-            summaryText += "Regards,\nEmployer Branding Team";
-            
-            emailBody = summaryText;
-            document.getElementById('reportOutput').innerText = summaryText;
-            document.getElementById('reportOutput').style.display = "block";
+            report += "Best Regards,\nEmployer Branding Team";
+            finalMessage = report;
+
+            // Display results
+            document.getElementById('output').innerText = report;
+            document.getElementById('output').style.display = "block";
             document.getElementById('gmailBtn').style.display = "block";
         };
-        reader.readAsArrayBuffer(e.target.files[0]);
+
+        reader.readAsArrayBuffer(file);
     });
 
     function sendEmail() {
-        const subject = encodeURIComponent("Weekly Social Media Performance Report");
-        const body = encodeURIComponent(emailBody);
+        const subject = encodeURIComponent("Social Media Performance Report");
+        const body = encodeURIComponent(finalMessage);
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
 </script>
