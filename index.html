@@ -2,89 +2,75 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>BFL Social Media Report Generator</title>
+    <title>BFL Social Media Reporting Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; padding: 30px; background-color: #f8f9fa; text-align: center; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        input { margin: 20px 0; }
-        #output { text-align: left; background: #f1f1f1; padding: 15px; border-radius: 8px; margin-top: 20px; display: none; white-space: pre-wrap; font-size: 14px; }
-        .btn { background: #007bff; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; width: 100%; margin-top: 10px; }
-        .btn-gmail { background: #d44638; display: none; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 40px; background-color: #f0f4f8; }
+        .card { max-width: 700px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
+        h2 { color: #003366; border-bottom: 2px solid #003366; padding-bottom: 10px; }
+        .upload-section { margin: 25px 0; border: 2px dashed #cbd5e0; padding: 30px; border-radius: 10px; text-align: center; }
+        #summary { text-align: left; background: #f8fafc; padding: 20px; border-radius: 8px; display: none; margin-top: 20px; white-space: pre-wrap; font-size: 15px; border: 1px solid #e2e8f0; }
+        .btn-gmail { background: #ea4335; color: white; border: none; padding: 15px; width: 100%; border-radius: 6px; font-weight: bold; cursor: pointer; display: none; margin-top: 15px; font-size: 16px; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h2>📊 BFL Report Summarizer</h2>
-    <p>Upload Excel to see the summary and ER calculation.</p>
+<div class="card">
+    <h2>📊 BFL Daily Report Automation</h2>
+    <p>Upload your <b>Demo Sheet 1</b> to generate the leadership summary.</p>
     
-    <input type="file" id="fileUpload" accept=".xlsx, .xls" />
+    <div class="upload-section">
+        <input type="file" id="sheetInput" accept=".xlsx, .xls" />
+    </div>
     
-    <div id="output"></div>
-    
-    <button id="gmailBtn" class="btn btn-gmail" onclick="sendEmail()">Send via Gmail</button>
+    <div id="summary"></div>
+    <button id="gmailBtn" class="btn-gmail" onclick="openGmail()">📧 Generate & Send Email</button>
 </div>
 
 <script>
-    let finalMessage = "";
+    let finalEmailBody = "";
 
-    document.getElementById('fileUpload').addEventListener('change', function(e) {
-        const file = e.target.files[0];
+    document.getElementById('sheetInput').addEventListener('change', function(e) {
         const reader = new FileReader();
-
         reader.onload = function(event) {
             const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            
+            // Converting to 2D array to target specific cells
+            const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
 
-            if (jsonData.length === 0) {
-                alert("Sheet is empty!");
-                return;
-            }
-
-            let report = "Hi Team,\n\nWeekly Social Media Update:\n\n";
-
-            jsonData.forEach((row, index) => {
-                // Get values regardless of capital/small letters in Excel headers
-                const platform = row.Platform || row.platform || "Platform " + (index + 1);
-                const reach = parseFloat(row.Reach || row.reach || 0);
-                const likes = parseFloat(row.Likes || row.likes || 0);
-                const comments = parseFloat(row.Comments || row.comments || 0);
-                const shares = parseFloat(row.Shares || row.shares || 0);
-                const saves = parseFloat(row.Saves || row.saves || 0);
-                const clicks = parseFloat(row.Clicks || row.clicks || 0);
-                
-                let er = 0;
-                if (platform.toLowerCase().includes("linkedin")) {
-                    er = row.ER || row.er || 0; // LinkedIn auto ER
-                } else {
-                    // Your custom formula: (Likes+Comments+Shares+Saves+Clicks)/Reach
-                    const totalInteractions = likes + comments + shares + saves + clicks;
-                    er = reach > 0 ? (totalInteractions / reach) * 100 : 0;
-                }
-
-                report += `📍 *${platform}*\n`;
-                report += `• Reach: ${reach.toLocaleString()}\n`;
-                report += `• Engagement Rate: ${er.toFixed(2)}%\n\n`;
+            // Mapping your specific Dashboard Layout
+            // Col Index: 3 (Facebook), 8 (Instagram), 13 (LinkedIn) represent the "21st-23rd Feb" column
+            const extractData = (colIndex) => ({
+                er: (rows[1][colIndex] * 100).toFixed(2) + "%",
+                posts: rows[2][colIndex],
+                followers: rows[3][colIndex].toLocaleString()
             });
 
-            report += "Best Regards,\nEmployer Branding Team";
-            finalMessage = report;
+            const fb = extractData(3);
+            const ig = extractData(8);
+            const li = extractData(13);
 
-            // Display results
-            document.getElementById('output').innerText = report;
-            document.getElementById('output').style.display = "block";
+            let report = `Hi Team,\n\nHere is the social media performance report for the recent period:\n\n`;
+            
+            report += `🔵 FACEBOOK\n- Engagement Rate: ${fb.er}\n- Posts: ${fb.posts}\n- Total Followers: ${fb.followers}\n\n`;
+            report += `📸 INSTAGRAM\n- Engagement Rate: ${ig.er}\n- Posts: ${ig.posts}\n- Total Followers: ${ig.followers}\n\n`;
+            report += `💼 LINKEDIN\n- Engagement Rate: ${li.er}\n- Posts: ${li.posts}\n- Total Followers: ${li.followers}\n\n`;
+            
+            report += `Best Regards,\nEmployer Branding Team`;
+
+            finalEmailBody = report;
+            document.getElementById('summary').innerText = report;
+            document.getElementById('summary').style.display = "block";
             document.getElementById('gmailBtn').style.display = "block";
         };
-
-        reader.readAsArrayBuffer(file);
+        reader.readAsArrayBuffer(e.target.files[0]);
     });
 
-    function sendEmail() {
-        const subject = encodeURIComponent("Social Media Performance Report");
-        const body = encodeURIComponent(finalMessage);
+    function openGmail() {
+        const subject = encodeURIComponent("Social Media Performance Summary");
+        const body = encodeURIComponent(finalEmailBody);
         window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
 </script>
