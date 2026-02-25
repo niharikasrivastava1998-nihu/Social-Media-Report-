@@ -1,60 +1,74 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BFL Social Media Reporter</title>
+    <title>BFL Social Media Summary Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
-        .container { max-width: 500px; margin: auto; border: 1px solid #ccc; padding: 20px; border-radius: 10px; }
-        button { background: #25D366; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 30px; background: #f0f2f5; }
+        .container { max-width: 700px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #reportOutput { margin-top: 20px; padding: 20px; background: #fafafa; border: 1px solid #ddd; border-radius: 8px; white-space: pre-wrap; display: none; color: #333; }
+        .btn { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .btn-gmail { background: #D44638; margin-top: 10px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Social Media Report Tool</h2>
-    <p>Upload your daily Excel sheet to generate a WhatsApp report.</p>
+    <h2>📊 BFL Social Media Summarizer</h2>
+    <p>Upload your report sheet to calculate ER and generate a summary.</p>
     
-    <input type="file" id="excel_file" accept=".xlsx, .xls" />
-    <br><br>
-    <button onclick="processReport()">Send to WhatsApp</button>
+    <input type="file" id="upload" accept=".xlsx" />
+    <div id="reportOutput"></div>
+    <button id="gmailBtn" class="btn btn-gmail" onclick="sendEmail()">📧 Send Summary to Leadership</button>
 </div>
 
 <script>
-    function processReport() {
-        const fileInput = document.getElementById('excel_file');
-        if (!fileInput.files[0]) {
-            alert("Please upload an Excel file first!");
-            return;
-        }
+    let emailBody = "";
 
+    document.getElementById('upload').addEventListener('change', function(e) {
         const reader = new FileReader();
-        reader.onload = function(e) {
-            const data = new Uint8Array(e.target.result);
+        reader.onload = function(event) {
+            const data = new Uint8Array(event.target.result);
             const workbook = XLSX.read(data, {type: 'array'});
-            
-            // Assuming data is in the first sheet
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet);
 
-            // LOGIC: Customize these keys based on your Excel column headers
-            // Example: Let's grab the last row of data
-            const latest = jsonData[jsonData.length - 1];
-            
-            const message = `*Weekly Social Media Report*%0A` +
-                            `--------------------------%0A` +
-                            `*Impressions:* ${latest.Impressions || 0}%0A` +
-                            `*Engagement Rate:* ${latest.ER || 0}%0A` +
-                            `*Views:* ${latest.Views || 0}%0A` +
-                            `--------------------------%0A` +
-                            `Check the dashboard for more details!`;
+            let summaryText = "Hi Leadership Team,\n\nHere is the social media performance breakdown:\n\n";
 
-            // Open WhatsApp with the pre-filled message
-            window.open(`https://wa.me/?text=${message}`, '_blank');
+            rows.forEach(row => {
+                let er = 0;
+                const platform = (row.Platform || "").toLowerCase();
+
+                if (platform.includes("linkedin")) {
+                    // Use automated ER from LinkedIn column
+                    er = row.ER || 0;
+                } else {
+                    // Apply your manual formula for IG/FB
+                    const interactions = (row.Likes || 0) + (row.Comments || 0) + (row.Shares || 0) + (row.Saves || 0) + (row.Clicks || 0);
+                    const reach = row.Reach || 1; // Avoid division by zero
+                    er = (interactions / reach) * 100;
+                }
+
+                summaryText += `*${row.Platform}*\n`;
+                summaryText += `• Reach: ${row.Reach.toLocaleString()}\n`;
+                summaryText += `• Engagement Rate: ${er.toFixed(2)}%\n`;
+                summaryText += `• Key Highlight: ${row.Highlight || "Steady growth"}\n\n`;
+            });
+
+            summaryText += "Regards,\nEmployer Branding Team";
+            
+            emailBody = summaryText;
+            document.getElementById('reportOutput').innerText = summaryText;
+            document.getElementById('reportOutput').style.display = "block";
+            document.getElementById('gmailBtn').style.display = "block";
         };
-        reader.readAsArrayBuffer(fileInput.files[0]);
+        reader.readAsArrayBuffer(e.target.files[0]);
+    });
+
+    function sendEmail() {
+        const subject = encodeURIComponent("Weekly Social Media Performance Report");
+        const body = encodeURIComponent(emailBody);
+        window.location.href = `mailto:?subject=${subject}&body=${body}`;
     }
 </script>
 
