@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BFL Social Media Reporter</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+        .container { max-width: 500px; margin: auto; border: 1px solid #ccc; padding: 20px; border-radius: 10px; }
+        button { background: #25D366; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Social Media Report Tool</h2>
+    <p>Upload your daily Excel sheet to generate a WhatsApp report.</p>
+    
+    <input type="file" id="excel_file" accept=".xlsx, .xls" />
+    <br><br>
+    <button onclick="processReport()">Send to WhatsApp</button>
+</div>
+
+<script>
+    function processReport() {
+        const fileInput = document.getElementById('excel_file');
+        if (!fileInput.files[0]) {
+            alert("Please upload an Excel file first!");
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, {type: 'array'});
+            
+            // Assuming data is in the first sheet
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+            // LOGIC: Customize these keys based on your Excel column headers
+            // Example: Let's grab the last row of data
+            const latest = jsonData[jsonData.length - 1];
+            
+            const message = `*Weekly Social Media Report*%0A` +
+                            `--------------------------%0A` +
+                            `*Impressions:* ${latest.Impressions || 0}%0A` +
+                            `*Engagement Rate:* ${latest.ER || 0}%0A` +
+                            `*Views:* ${latest.Views || 0}%0A` +
+                            `--------------------------%0A` +
+                            `Check the dashboard for more details!`;
+
+            // Open WhatsApp with the pre-filled message
+            window.open(`https://wa.me/?text=${message}`, '_blank');
+        };
+        reader.readAsArrayBuffer(fileInput.files[0]);
+    }
+</script>
+
+</body>
+</html>
